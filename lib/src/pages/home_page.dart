@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 
 import 'package:super_qr_reader/super_qr_reader.dart';
+
+import 'package:qrscanner/src/blocs/scan_bloc.dart';
+import 'package:qrscanner/src/utils/utils_helpers.dart' as Helpers;
+import 'package:qrscanner/src/models/scan_model.dart';
+
 import 'package:qrscanner/src/pages/address_page.dart';
 import 'package:qrscanner/src/pages/map_page.dart';
-
 
 class HomePage extends StatefulWidget {
   @override
@@ -11,9 +15,9 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  int currentIndex = 0;  
-  String qrScanned = '';
+  int currentIndex = 0;
 
+  final scansBloc = new ScansBloc();
 
   @override
   Widget build(BuildContext context) {
@@ -23,7 +27,12 @@ class _HomePageState extends State<HomePage> {
         centerTitle: true,
         toolbarOpacity: 0.8,
         actions: <Widget>[
-          IconButton(icon: Icon(Icons.delete_forever), onPressed: () {})
+          IconButton(icon: Icon(
+            Icons.delete_forever), 
+            onPressed: () async {
+              await scansBloc.deleteAllScans();
+            }
+          )
         ],
       ),
       body: _callPage(currentIndex),
@@ -31,7 +40,7 @@ class _HomePageState extends State<HomePage> {
       floatingActionButton: _setFloatingActionButton(context),
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
     );
-  }    
+  }
 
   Widget _setBottomNavigationBar() {
     return BottomNavigationBar(
@@ -47,7 +56,7 @@ class _HomePageState extends State<HomePage> {
            title: Text('Maps')
          ),
          BottomNavigationBarItem(
-           icon: Icon(Icons.settings),
+           icon: Icon(Icons.open_in_browser),
            title: Text('Addresses')
          )
       ],
@@ -71,11 +80,12 @@ class _HomePageState extends State<HomePage> {
         scanQR(context);
       },
       child: Icon(Icons.camera_enhance),
-      backgroundColor: Theme.of(context).primaryColor,   
+      backgroundColor: Theme.of(context).primaryColor,
     );
   }
 
-  void scanQR(BuildContext context) async {    
+  void scanQR(BuildContext context) async {
+    String qrScanned = '';
     try {                  
       String results = await Navigator.push( // waiting for the scan results
         context,
@@ -83,20 +93,26 @@ class _HomePageState extends State<HomePage> {
           builder: (context) => ScanView(),
         ),
       );
-
-      if (results != null) {
-        setState(() {
-          qrScanned = results;
-        });
-      }
+      qrScanned = results;        
     }catch (e) {
       qrScanned = e.toString();
     }
 
-    print('Future string: '+qrScanned);
+    if( qrScanned != null) {   
+      final scan = new ScanModel(value: qrScanned);
+      scansBloc.addScan(scan);
 
-    if( qrScanned != null) {
-      print('we got info');
+      Helpers.launchURL(context, scan);
+
+      if(scan.type == 'http') {
+        setState(() {
+          currentIndex = 1;
+        });
+      }else{
+        setState(() {
+          currentIndex = 0;
+        });
+      }
     }
   }
 }
